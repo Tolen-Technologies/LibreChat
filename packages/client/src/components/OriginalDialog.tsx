@@ -78,7 +78,6 @@ const DialogContent = React.forwardRef<
     },
     ref,
   ) => {
-
     /* Handle Escape key to prevent closing dialog if a tooltip or dropdown is open 
     (this is a workaround in order to achieve WCAG compliance which requires
     that our tooltips be dismissable with Escape key) */

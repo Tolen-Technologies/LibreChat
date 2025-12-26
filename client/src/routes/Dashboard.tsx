@@ -5,6 +5,7 @@ import {
   CreatePromptForm,
   EmptyPromptPreview,
 } from '~/components/Prompts';
+import { SegmentsView, SegmentDetail, EmptySegmentPreview } from '~/components/Segments';
 import DashboardRoute from './Layouts/Dashboard';
 
 const dashboardRoutes = {
@@ -69,6 +70,20 @@ const dashboardRoutes = {
         {
           path: ':promptId',
           element: <PromptForm />,
+        },
+      ],
+    },
+    {
+      path: 'segments/*',
+      element: <SegmentsView />,
+      children: [
+        {
+          index: true,
+          element: <EmptySegmentPreview />,
+        },
+        {
+          path: ':segmentId',
+          element: <SegmentDetail />,
         },
       ],
     },

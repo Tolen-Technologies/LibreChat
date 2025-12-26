@@ -2,8 +2,10 @@ import { v4 } from 'uuid';
 import { useCallback } from 'react';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Constants, replaceSpecialVars } from 'librechat-data-provider';
+import { useToastContext } from '@librechat/client';
 import { useChatContext, useChatFormContext, useAddedChatContext } from '~/Providers';
 import { useAuthContext } from '~/hooks/AuthContext';
+import { createSegment } from '~/data-provider/Segments';
 import store from '~/store';
 
 const appendIndex = (index: number, value?: string) => {
@@ -16,6 +18,7 @@ const appendIndex = (index: number, value?: string) => {
 export default function useSubmitMessage() {
   const { user } = useAuthContext();
   const methods = useChatFormContext();
+  const { showToast } = useToastContext();
   const { ask, index, getMessages, setMessages, latestMessage } = useChatContext();
   const { addedIndex, ask: askAdditional, conversation: addedConvo } = useAddedChatContext();
 
@@ -24,10 +27,35 @@ export default function useSubmitMessage() {
   const setActivePrompt = useSetRecoilState(store.activePromptByIndex(index));
 
   const submitMessage = useCallback(
-    (data?: { text: string }) => {
+    async (data?: { text: string }) => {
       if (!data) {
         return console.warn('No data provided to submitMessage');
       }
+
+      // Intercept /segment command
+      const segmentMatch = data.text.match(/^\/segment\s+(.+)$/i);
+      if (segmentMatch) {
+        const description = segmentMatch[1].trim();
+
+        try {
+          showToast({ message: 'Membuat segment...', status: 'info' });
+          const segment = await createSegment({ description });
+          showToast({
+            message: `Segment "${segment.name}" berhasil dibuat!`,
+            status: 'success',
+          });
+          methods.reset();
+          return; // Don't send to LLM
+        } catch (error) {
+          console.error('[/segment] Error creating segment:', error);
+          showToast({
+            message: 'Gagal membuat segment. Silakan coba lagi.',
+            status: 'error',
+          });
+          return;
+        }
+      }
+
       const rootMessages = getMessages();
       const isLatestInRootMessages = rootMessages?.some(
         (message) => message.messageId === latestMessage?.messageId,
@@ -69,6 +97,7 @@ export default function useSubmitMessage() {
     [
       ask,
       methods,
+      showToast,
       addedIndex,
       addedConvo,
       setMessages,
