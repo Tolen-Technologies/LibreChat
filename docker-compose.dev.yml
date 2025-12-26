@@ -1,0 +1,36 @@
+# Development docker-compose with hot-reload
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# This mounts source code as volumes so changes are reflected immediately.
+# API uses nodemon for auto-restart on file changes.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: librechat-dev-local
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot-reload
+      - ./api:/app/api
+      - ./packages:/app/packages
+      - ./config:/app/config
+      # Mount config files
+      - ./.env:/app/.env
+      - ./librechat.yaml:/app/librechat.yaml
+      # Persist uploads and logs
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - ./images:/app/client/public/images
+      # Exclude node_modules (use container's installed modules)
+      - /app/node_modules
+      - /app/api/node_modules
+      - /app/packages/data-provider/node_modules
+      - /app/packages/data-schemas/node_modules
+      - /app/packages/api/node_modules
+      - /app/packages/client/node_modules
+      - /app/client/node_modules
