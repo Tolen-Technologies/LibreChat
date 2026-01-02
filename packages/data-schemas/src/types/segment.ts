@@ -16,11 +16,16 @@ export interface Segment {
   segmentId: string;
   name: string;
   description: string;
+  originalPrompt: string;
   sqlQuery: string;
+  viewName: string;
   columns: SegmentColumn[];
   createdBy: string;
+  createdDate: Date;
   lastExecutedAt?: Date;
   lastRowCount?: number;
+  isDeleted: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,11 +38,16 @@ export interface ISegment extends Document {
   segmentId: string;
   name: string;
   description: string;
+  originalPrompt: string;
   sqlQuery: string;
+  viewName: string;
   columns: SegmentColumn[];
   createdBy: string;
+  createdDate: Date;
   lastExecutedAt?: Date;
   lastRowCount?: number;
+  isDeleted: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

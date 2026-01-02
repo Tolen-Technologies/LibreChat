@@ -179,5 +179,12 @@
         "description": "Provide your Flux API key from your user profile."
       }
     ]
+  },
+  {
+    "name": "CRM Query",
+    "pluginKey": "crm_query",
+    "description": "Buat segment pelanggan dari deskripsi natural language menggunakan perintah /segment",
+    "icon": "https://i.imgur.com/RHsSG5h.png",
+    "authConfig": []
   }
 ]

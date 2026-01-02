@@ -81,3 +81,104 @@ Return in this exact JSON format:
 
 JSON Response:
 """
+
+SEGMENT_VIEW_GENERATION_PROMPT = """
+You are a MySQL expert. Generate a segment definition from this description.
+
+TODAY'S DATE: {current_date}
+
+IMPORTANT RULES:
+1. For time-based filters (e.g., "6 months ago"):
+   - Calculate the exact date based on TODAY'S DATE
+   - Use DATE('YYYY-MM-DD') function with hardcoded dates
+   - Example: If today is 2025-12-26 and query asks for "6 months ago", use DATE('2025-06-26') NOT DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+
+2. SQL format:
+   - Do NOT include a semicolon (;) at the end of the SQL
+   - Do NOT include comments in the SQL
+   - Use proper table aliases for clarity
+
+Database schema:
+- customer table: custid (PK, int), custcode, custname, custemail, mobileno, status (ACTIVE/INACTIVE), joindate, birthday, branchno, cityid
+- invoice table: invno (PK), invoiceno, custid (FK to customer), invdate (date - use this for transaction dates!), balanceinvoice, invoicestatus (PAID/OUTS/VOID), branchno
+
+IMPORTANT: The invoice date column is "invdate", NOT "invoicedate"!
+
+Description: {description}
+
+Return JSON with:
+{{
+  "name": "Short segment name (Indonesian)",
+  "description": "Detailed explanation (Indonesian)",
+  "sql": "SELECT c.custid, c.custcode, c.custname, c.custemail, c.mobileno FROM customer c WHERE ..."
+}}
+"""
+
+# SQL-only prompt for NLSQLTableQueryEngine - used for segment generation
+SEGMENT_SQL_ONLY_PROMPT = """Given an input question, create a syntactically correct {dialect} query to run.
+
+TODAY'S DATE: {current_date}
+
+IMPORTANT RULES:
+1. For time-based filters (e.g., "6 months ago", "last year"):
+   - Calculate the exact date based on TODAY'S DATE above
+   - Use DATE('YYYY-MM-DD') function with hardcoded dates
+   - Example: If today is 2025-12-28 and query asks for "6 months ago", use DATE('2025-06-28')
+   - Do NOT use DATE_SUB, CURDATE(), NOW(), or any dynamic date functions
+
+2. SQL format:
+   - Return ONLY the SQL query, nothing else
+   - Do NOT include markdown code blocks (no ```)
+   - Do NOT include semicolon (;) at the end
+   - Do NOT include any comments or explanations
+   - Use proper table aliases for clarity
+
+3. Required output columns for customer segments:
+   - Always SELECT: custid, custcode, custname, custemail, mobileno
+   - Use table alias 'c' for customer table
+
+Here is the relevant table info: {schema}
+
+Question: {query_str}
+SQLQuery: """
+
+# Prompt for generating segment name and description (separate LLM call)
+SEGMENT_METADATA_PROMPT = """Based on the following segment description and SQL query, generate a short name and detailed description in Indonesian.
+
+User's segment description: {description}
+
+Generated SQL query: {sql}
+
+Return a JSON object with exactly these keys:
+{{
+  "name": "Short segment name in Indonesian (max 50 chars)",
+  "description": "Detailed explanation of what this segment contains in Indonesian"
+}}
+
+Only return the JSON, no markdown formatting or additional text.
+"""
+
+# Prompt for generating customer personality based on customer data
+CUSTOMER_PERSONALITY_PROMPT = """Anda adalah analis CRM yang berpengalaman di industri travel. Berdasarkan data pelanggan berikut, buatlah analisis kepribadian dan preferensi pelanggan.
+
+Data Pelanggan:
+{customer_data}
+
+Analisis dan hasilkan dalam format JSON dengan struktur berikut:
+
+{{
+  "summary": "Ringkasan singkat tentang pelanggan ini (pola perjalanan, tipe pelanggan, tingkat engagement). Tulis dalam 2-3 kalimat dalam Bahasa Indonesia.",
+  "preferences": "Preferensi perjalanan yang dapat disimpulkan (destinasi favorit, gaya perjalanan, tier anggaran). Tulis dalam 2-3 kalimat dalam Bahasa Indonesia."
+}}
+
+Pertimbangkan faktor-faktor berikut dalam analisis:
+- Frekuensi transaksi dan total pengeluaran
+- Jenis produk yang sering dibeli (tiket pesawat, hotel, tour, dll)
+- Tanggal bergabung dan aktivitas terakhir
+- Status pelanggan (aktif/tidak aktif)
+- Tipe pelanggan (FIT/Corporate)
+
+Berikan analisis yang realistis dan actionable untuk tim marketing.
+
+Hanya kembalikan JSON, tanpa markdown formatting atau teks tambahan.
+"""

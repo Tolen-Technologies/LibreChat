@@ -2918,3 +2918,189 @@ html {
 .sharepoint-picker-bg {
   background-color: #f5f5f5;
 }
+
+/* ===== Notes Editor (Quill) Styles ===== */
+/* Notion-like minimal design for the Quill editor */
+
+.notes-editor-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.notes-quill-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.notes-quill-editor .ql-toolbar {
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  background: transparent;
+  padding: 8px 12px;
+}
+
+.notes-quill-editor .ql-toolbar .ql-formats {
+  margin-right: 12px;
+}
+
+.notes-quill-editor .ql-toolbar button {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.notes-quill-editor .ql-toolbar button:hover {
+  background-color: var(--surface-tertiary);
+}
+
+.notes-quill-editor .ql-toolbar button.ql-active {
+  color: var(--text-primary);
+  background-color: var(--surface-tertiary);
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker {
+  color: var(--text-secondary);
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker-label {
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker-label:hover {
+  background-color: var(--surface-tertiary);
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker-options {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+}
+
+/* Minimal notebook feel */
+.notes-quill-editor .ql-container {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent;
+}
+.notes-quill-editor .ql-editor {
+  padding: 0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.notes-quill-editor .ql-editor.ql-blank::before {
+  color: var(--text-tertiary);
+  left: 0;
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker-item {
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.notes-quill-editor .ql-toolbar .ql-picker-item:hover {
+  background-color: var(--surface-tertiary);
+}
+
+.notes-quill-editor .ql-container {
+  border: none;
+  flex: 1;
+  font-family: inherit;
+  font-size: 14px;
+  overflow-y: auto;
+}
+
+.notes-quill-editor .ql-editor {
+  padding: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  min-height: 200px;
+}
+
+.notes-quill-editor .ql-editor.ql-blank::before {
+  color: var(--text-tertiary);
+  font-style: normal;
+  left: 16px;
+}
+
+.notes-quill-editor .ql-editor h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.notes-quill-editor .ql-editor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.notes-quill-editor .ql-editor p {
+  margin-bottom: 0.5rem;
+}
+
+.notes-quill-editor .ql-editor ul,
+.notes-quill-editor .ql-editor ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.notes-quill-editor .ql-editor li {
+  margin-bottom: 0.25rem;
+}
+
+.notes-quill-editor .ql-editor a {
+  color: var(--brand-purple);
+  text-decoration: underline;
+}
+
+.notes-quill-editor .ql-editor a:hover {
+  opacity: 0.8;
+}
+
+/* Dark mode adjustments for Quill */
+.dark .notes-quill-editor .ql-toolbar button {
+  color: var(--text-secondary);
+}
+
+.dark .notes-quill-editor .ql-toolbar button:hover {
+  color: var(--text-primary);
+}
+
+.dark .notes-quill-editor .ql-toolbar button.ql-active {
+  color: var(--text-primary);
+}
+
+.dark .notes-quill-editor .ql-stroke {
+  stroke: var(--text-secondary);
+}
+
+.dark .notes-quill-editor .ql-toolbar button:hover .ql-stroke,
+.dark .notes-quill-editor .ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--text-primary);
+}
+
+.dark .notes-quill-editor .ql-fill {
+  fill: var(--text-secondary);
+}
+
+.dark .notes-quill-editor .ql-toolbar button:hover .ql-fill,
+.dark .notes-quill-editor .ql-toolbar button.ql-active .ql-fill {
+  fill: var(--text-primary);
+}
+
+.dark .notes-quill-editor .ql-picker-label {
+  color: var(--text-secondary);
+}
+
+.dark .notes-quill-editor .ql-picker-label:hover {
+  color: var(--text-primary);
+}

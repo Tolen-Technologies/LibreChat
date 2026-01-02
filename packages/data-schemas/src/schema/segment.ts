@@ -36,7 +36,15 @@ const segmentSchema = new Schema<ISegment>(
       type: String,
       required: true,
     },
+    originalPrompt: {
+      type: String,
+      required: true,
+    },
     sqlQuery: {
+      type: String,
+      required: true,
+    },
+    viewName: {
       type: String,
       required: true,
     },
@@ -46,16 +54,29 @@ const segmentSchema = new Schema<ISegment>(
       required: true,
       index: true,
     },
+    createdDate: {
+      type: Date,
+      required: true,
+    },
     lastExecutedAt: {
       type: Date,
     },
     lastRowCount: {
       type: Number,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+    },
   },
   { timestamps: true },
 );
 
 segmentSchema.index({ createdAt: -1 });
+segmentSchema.index({ isDeleted: 1, createdAt: -1 });
 
 export default segmentSchema;

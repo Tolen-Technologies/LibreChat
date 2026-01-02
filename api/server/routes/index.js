@@ -25,6 +25,7 @@ const keys = require('./keys');
 const user = require('./user');
 const mcp = require('./mcp');
 const segments = require('./segments');
+const customerProfile = require('./customerProfile');
 
 module.exports = {
   mcp,
@@ -54,4 +55,5 @@ module.exports = {
   staticRoute,
   accessPermissions,
   segments,
+  customerProfile,
 };

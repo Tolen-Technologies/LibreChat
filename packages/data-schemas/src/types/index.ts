@@ -31,3 +31,5 @@ export * from './web';
 export * from './mcp';
 /* CRM Segments */
 export * from './segment';
+/* CRM Customer Profiles */
+export * from './customerProfile';

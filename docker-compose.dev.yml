@@ -1,36 +1,81 @@
-# Development docker-compose with hot-reload
+# Development docker-compose override focused on live-reload.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-#
-# This mounts source code as volumes so changes are reflected immediately.
-# API uses nodemon for auto-restart on file changes.
+# This keeps deps in-container but bind-mounts the source so code changes are
+# picked up immediately by nodemon (API) and Vite dev server (client).
 
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    image: librechat-dev-local
+    image: node:20-alpine
+    working_dir: /app
     env_file:
       - .env
     environment:
       - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=${PORT:-3080}
+      - CRM_BACKEND_URL=http://crm-backend:8000
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MEILI_HOST=http://meilisearch:7700
+      - RAG_API_URL=http://rag_api:${RAG_PORT:-8000}
+    command: >
+      sh -c "
+        npm install &&
+        npm run backend:dev
+      "
     volumes:
-      # Mount source code for hot-reload
-      - ./api:/app/api
-      - ./packages:/app/packages
-      - ./config:/app/config
-      # Mount config files
-      - ./.env:/app/.env
-      - ./librechat.yaml:/app/librechat.yaml
-      # Persist uploads and logs
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-      - ./images:/app/client/public/images
-      # Exclude node_modules (use container's installed modules)
+      - ./:/app
       - /app/node_modules
-      - /app/api/node_modules
-      - /app/packages/data-provider/node_modules
-      - /app/packages/data-schemas/node_modules
-      - /app/packages/api/node_modules
-      - /app/packages/client/node_modules
-      - /app/client/node_modules
+    ports:
+      - "${PORT:-3080}:${PORT:-3080}"
+    depends_on:
+      - mongodb
+      - rag_api
+
+  client:
+    image: node:20-alpine
+    working_dir: /app/client
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=5173
+      - BACKEND_HOST=api
+      - BACKEND_PORT=3080
+      - BACKEND_URL=http://api:3080
+    command: >
+      sh -c "
+        cd /app &&
+        npm install &&
+        cd client &&
+        npm run dev -- --host 0.0.0.0 --port 5173
+      "
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  # Optional CRM backend service (FastAPI) to align with new CRM features.
+  crm-backend:
+    build:
+      context: ./crm-backend
+      dockerfile: Dockerfile
+    environment:
+      - CRM_DB_HOST=${CRM_DB_HOST:-host.docker.internal}
+      - CRM_DB_PORT=${CRM_DB_PORT:-3306}
+      - CRM_DB_USER=${CRM_DB_USER:-root}
+      - CRM_DB_PASSWORD=${CRM_DB_PASSWORD:-}
+      - CRM_DB_DATABASE=${CRM_DB_DATABASE:-clonecrm}
+      - CRM_OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CRM_OPENAI_MODEL=${CRM_OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - "8001:8000"  # host:container to avoid port conflicts
+    volumes:
+      - ./crm-backend:/app
+      - /app/.venv
+
+volumes:
+  pgdata2:

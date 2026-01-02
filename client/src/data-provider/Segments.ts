@@ -18,11 +18,16 @@ export interface Segment {
   segmentId: string;
   name: string;
   description: string;
+  originalPrompt: string;
   sqlQuery: string;
+  viewName: string;
   columns: SegmentColumn[];
   createdBy: string;
+  createdDate: string;
   lastExecutedAt?: string;
   lastRowCount?: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,6 +50,14 @@ export interface SegmentExecuteResult {
   executedAt: string;
 }
 
+/**
+ * Response from refreshing a segment.
+ */
+export interface SegmentRefreshResponse {
+  segment: Segment;
+  data: SegmentExecuteResult;
+}
+
 // API functions
 const segmentsApi = {
   getSegments: (): Promise<Segment[]> => request.get('/api/segments'),
@@ -53,6 +66,8 @@ const segmentsApi = {
     request.post('/api/segments', data),
   executeSegment: (segmentId: string): Promise<SegmentExecuteResult> =>
     request.get(`/api/segments/${segmentId}/execute`),
+  refreshSegment: (segmentId: string): Promise<SegmentRefreshResponse> =>
+    request.post(`/api/segments/${segmentId}/refresh`),
   deleteSegment: (segmentId: string): Promise<{ success: boolean }> =>
     request.delete(`/api/segments/${segmentId}`),
 };
@@ -127,6 +142,25 @@ export const useExecuteSegmentMutation = (
   return useMutation<SegmentExecuteResult, Error, void>({
     mutationFn: () => segmentsApi.executeSegment(segmentId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: segmentsQueryKeys.detail(segmentId) });
+    },
+    ...config,
+  });
+};
+
+/**
+ * Hook to refresh a segment (update dates and re-execute query).
+ */
+export const useRefreshSegmentMutation = (
+  segmentId: string,
+  config?: Omit<UseMutationOptions<SegmentRefreshResponse, Error, void>, 'mutationFn'>,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation<SegmentRefreshResponse, Error, void>({
+    mutationFn: () => segmentsApi.refreshSegment(segmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: segmentsQueryKeys.lists() });
       queryClient.invalidateQueries({ queryKey: segmentsQueryKeys.detail(segmentId) });
     },
     ...config,

@@ -2,11 +2,14 @@ import { v4 } from 'uuid';
 import { useCallback } from 'react';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Constants, replaceSpecialVars } from 'librechat-data-provider';
-import { useToastContext } from '@librechat/client';
+import type { TMessage } from 'librechat-data-provider';
 import { useChatContext, useChatFormContext, useAddedChatContext } from '~/Providers';
 import { useAuthContext } from '~/hooks/AuthContext';
 import { createSegment } from '~/data-provider/Segments';
 import store from '~/store';
+
+// Constants for segment command
+const NO_PARENT = '00000000-0000-0000-0000-000000000000';
 
 const appendIndex = (index: number, value?: string) => {
   if (!value) {
@@ -18,8 +21,7 @@ const appendIndex = (index: number, value?: string) => {
 export default function useSubmitMessage() {
   const { user } = useAuthContext();
   const methods = useChatFormContext();
-  const { showToast } = useToastContext();
-  const { ask, index, getMessages, setMessages, latestMessage } = useChatContext();
+  const { ask, index, getMessages, setMessages, latestMessage, conversation } = useChatContext();
   const { addedIndex, ask: askAdditional, conversation: addedConvo } = useAddedChatContext();
 
   const autoSendPrompts = useRecoilValue(store.autoSendPrompts);
@@ -36,24 +38,74 @@ export default function useSubmitMessage() {
       const segmentMatch = data.text.match(/^\/segment\s+(.+)$/i);
       if (segmentMatch) {
         const description = segmentMatch[1].trim();
+        const currentMessages = getMessages() || [];
+        const conversationId = conversation?.conversationId || v4();
+        const now = new Date().toISOString();
+
+        // Find the last message to use as parent
+        const lastMessage = currentMessages[currentMessages.length - 1];
+        const parentMessageId = lastMessage?.messageId || NO_PARENT;
+
+        // Create user message
+        const userMessageId = v4();
+        const userMessage: TMessage = {
+          messageId: userMessageId,
+          conversationId,
+          parentMessageId,
+          text: data.text,
+          sender: 'User',
+          isCreatedByUser: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        // Add user message to conversation
+        setMessages([...currentMessages, userMessage]);
+        methods.reset();
+
+        // Create assistant message (will be updated with result)
+        const assistantMessageId = v4();
+        let assistantMessage: TMessage = {
+          messageId: assistantMessageId,
+          conversationId,
+          parentMessageId: userMessageId,
+          text: 'Membuat segment...',
+          sender: 'CRM Assistant',
+          isCreatedByUser: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        // Add "loading" assistant message
+        setMessages([...currentMessages, userMessage, assistantMessage]);
 
         try {
-          showToast({ message: 'Membuat segment...', status: 'info' });
           const segment = await createSegment({ description });
-          showToast({
-            message: `Segment "${segment.name}" berhasil dibuat!`,
-            status: 'success',
-          });
-          methods.reset();
-          return; // Don't send to LLM
+
+          // Update assistant message with success response
+          const segmentUrl = `/segments?selected=${segment.segmentId}`;
+          assistantMessage = {
+            ...assistantMessage,
+            text: `Segment berhasil dibuat!\n\n**${segment.name}**\n\n${segment.description || ''}\n\n[Lihat Segment](${segmentUrl})`,
+            updatedAt: new Date().toISOString(),
+          };
+
+          setMessages([...currentMessages, userMessage, assistantMessage]);
         } catch (error) {
           console.error('[/segment] Error creating segment:', error);
-          showToast({
-            message: 'Gagal membuat segment. Silakan coba lagi.',
-            status: 'error',
-          });
-          return;
+
+          // Update assistant message with error
+          assistantMessage = {
+            ...assistantMessage,
+            text: 'Gagal membuat segment. Silakan coba lagi.',
+            error: true,
+            updatedAt: new Date().toISOString(),
+          };
+
+          setMessages([...currentMessages, userMessage, assistantMessage]);
         }
+
+        return; // Don't send to LLM
       }
 
       const rootMessages = getMessages();
@@ -97,7 +149,6 @@ export default function useSubmitMessage() {
     [
       ask,
       methods,
-      showToast,
       addedIndex,
       addedConvo,
       setMessages,
@@ -105,6 +156,7 @@ export default function useSubmitMessage() {
       activeConvos,
       askAdditional,
       latestMessage,
+      conversation,
     ],
   );
 

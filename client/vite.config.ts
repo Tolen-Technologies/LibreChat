@@ -8,8 +8,10 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-const backendPort = process.env.BACKEND_PORT && Number(process.env.BACKEND_PORT) || 3080;
-const backendURL = process.env.HOST ? `http://${process.env.HOST}:${backendPort}` : `http://localhost:${backendPort}`;
+const backendPort = (process.env.BACKEND_PORT && Number(process.env.BACKEND_PORT)) || 3080;
+const backendHost = process.env.BACKEND_HOST || 'localhost';
+const backendURL =
+  process.env.BACKEND_URL || `http://${backendHost}:${backendPort}`;
 
 export default defineConfig(({ command }) => ({
   base: '',

@@ -28,6 +28,7 @@ const {
   // Structured Tools
   DALLE3,
   FluxAPI,
+  CRMQuery,
   OpenWeather,
   StructuredSD,
   StructuredACS,
@@ -174,6 +175,7 @@ const loadTools = async ({
     flux: FluxAPI,
     calculator: Calculator,
     google: GoogleSearchAPI,
+    crm_query: CRMQuery,
     open_weather: OpenWeather,
     wolfram: StructuredWolfram,
     'stable-diffusion': StructuredSD,

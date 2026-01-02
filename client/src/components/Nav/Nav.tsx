@@ -20,6 +20,7 @@ import { cn } from '~/utils';
 import store from '~/store';
 
 const BookmarkNav = lazy(() => import('./Bookmarks/BookmarkNav'));
+const SegmentsLink = lazy(() => import('./SegmentsLink'));
 const AccountSettings = lazy(() => import('./AccountSettings'));
 
 const NAV_WIDTH_DESKTOP = '260px';
@@ -172,6 +173,9 @@ const Nav = memo(
     const headerButtons = useMemo(
       () => (
         <>
+          <Suspense fallback={null}>
+            <SegmentsLink toggleNav={toggleNavVisible} />
+          </Suspense>
           {hasAccessToBookmarks && (
             <>
               <div className="mt-1.5" />
@@ -182,7 +186,7 @@ const Nav = memo(
           )}
         </>
       ),
-      [hasAccessToBookmarks, tags],
+      [hasAccessToBookmarks, tags, toggleNavVisible],
     );
 
     const [isSearchLoading, setIsSearchLoading] = useState(

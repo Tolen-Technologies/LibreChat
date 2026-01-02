@@ -1,15 +1,10 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
-  type ColumnFiltersState,
   type PaginationState,
 } from '@tanstack/react-table';
 import {
@@ -22,34 +17,65 @@ import {
   ChevronsRight,
   Search,
 } from 'lucide-react';
-import { Button } from '@librechat/client';
 import type { SegmentColumn } from '~/data-provider/Segments';
 
-// Define which columns to display and their display names
-const DISPLAYED_COLUMNS = ['custid', 'custname', 'custemail', 'mobileno'] as const;
-const COLUMN_DISPLAY_NAMES: Record<string, string> = {
-  custid: 'ID',
-  custname: 'Name',
-  custemail: 'Email',
-  mobileno: 'Mobile',
-};
-
-interface DataTableProps {
+interface DataTableServerSideProps {
   columns: SegmentColumn[];
   data: Record<string, unknown>[];
+  // Server-side pagination props
+  totalRowCount: number;
+  onPaginationChange?: (pagination: PaginationState) => void;
+  onSortingChange?: (sorting: SortingState) => void;
+  onGlobalFilterChange?: (filter: string) => void;
+  isLoading?: boolean;
 }
 
-export default function DataTable({ columns, data }: DataTableProps) {
-  const navigate = useNavigate();
-
+/**
+ * DataTable with server-side pagination, sorting, and filtering support.
+ *
+ * Use this component when:
+ * - Dataset is very large (> 10,000 rows)
+ * - Data must be fetched from server with pagination/filtering
+ * - You want to reduce client-side memory usage
+ *
+ * The parent component should:
+ * - Fetch data based on pagination/sorting/filter state
+ * - Pass totalRowCount from server response
+ * - Handle onPaginationChange, onSortingChange, onGlobalFilterChange callbacks
+ */
+export default function DataTableServerSide({
+  columns,
+  data,
+  totalRowCount,
+  onPaginationChange,
+  onSortingChange,
+  onGlobalFilterChange,
+  isLoading = false,
+}: DataTableServerSideProps) {
   // Table state management
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
+
+  // Notify parent component of state changes
+  useEffect(() => {
+    onPaginationChange?.(pagination);
+  }, [pagination, onPaginationChange]);
+
+  useEffect(() => {
+    onSortingChange?.(sorting);
+  }, [sorting, onSortingChange]);
+
+  useEffect(() => {
+    // Debounce global filter to avoid too many server requests
+    const timer = setTimeout(() => {
+      onGlobalFilterChange?.(globalFilter);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [globalFilter, onGlobalFilterChange]);
 
   /**
    * Format cell value based on column type
@@ -85,103 +111,54 @@ export default function DataTable({ columns, data }: DataTableProps) {
   };
 
   /**
-   * Custom sorting function for different data types
-   */
-  const getSortingFn = (type: string) => {
-    switch (type) {
-      case 'currency':
-      case 'number':
-        return (rowA: any, rowB: any, columnId: string) => {
-          const a = Number(rowA.getValue(columnId) ?? 0);
-          const b = Number(rowB.getValue(columnId) ?? 0);
-          return a - b;
-        };
-      case 'date':
-        return (rowA: any, rowB: any, columnId: string) => {
-          const a = new Date(String(rowA.getValue(columnId) ?? 0)).getTime();
-          const b = new Date(String(rowB.getValue(columnId) ?? 0)).getTime();
-          return a - b;
-        };
-      default:
-        return 'alphanumeric'; // Built-in TanStack Table sorting function for strings
-    }
-  };
-
-  /**
    * Build TanStack Table column definitions from dynamic segment columns
-   * Only displays the 4 specified columns plus an Actions column
    */
   const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
-    // Filter to only include the 4 specified columns in order
-    const filteredColumns = DISPLAYED_COLUMNS.map((key) =>
-      columns.find((col) => col.key === key),
-    ).filter((col): col is SegmentColumn => col !== undefined);
-
-    // Map filtered columns to table column definitions
-    const dataColumns: ColumnDef<Record<string, unknown>>[] = filteredColumns.map((col) => ({
+    return columns.map((col) => ({
       id: col.key,
       accessorKey: col.key,
-      header: COLUMN_DISPLAY_NAMES[col.key] || col.label,
+      header: col.label,
       cell: ({ getValue }) => formatCell(getValue(), col.type),
-      // Configure sorting function based on column type
-      sortingFn: getSortingFn(col.type),
-      // Enable global filtering for text-based columns
-      enableGlobalFilter:
-        col.type === 'string' ||
-        col.key.toLowerCase().includes('name') ||
-        col.key.toLowerCase().includes('id'),
     }));
-
-    // Add Actions column with View button
-    const actionsColumn: ColumnDef<Record<string, unknown>> = {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const customerId = row.original.custid;
-        return (
-          <Button variant="outline" size="sm" onClick={() => navigate(`/canvas/${customerId}`)}>
-            View
-          </Button>
-        );
-      },
-      enableSorting: false,
-      enableGlobalFilter: false,
-    };
-
-    return [...dataColumns, actionsColumn];
-  }, [columns, navigate]);
+  }, [columns]);
 
   /**
-   * Create table instance with TanStack Table
+   * Calculate page count from total row count
+   */
+  const pageCount = Math.ceil(totalRowCount / pagination.pageSize);
+
+  /**
+   * Create table instance with TanStack Table (server-side mode)
    */
   const table = useReactTable({
     data,
     columns: tableColumns,
-    // State management - controlled state
+    // Server-side mode configuration
+    manualPagination: true,
+    manualSorting: true,
+    manualFiltering: true,
+    pageCount,
+    // State management
     state: {
       sorting,
       globalFilter,
-      columnFilters,
       pagination,
     },
-    // State updaters
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
-    onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
-    // Row models - enable features
+    // Only core row model for server-side
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    // Global filter function
-    globalFilterFn: 'includesString',
   });
 
-  if (data.length === 0) {
+  if (data.length === 0 && !isLoading) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-12">
-        <p className="text-center text-text-secondary">Tidak ada data yang ditemukan</p>
+        <p className="text-center text-text-secondary">
+          {globalFilter
+            ? 'Tidak ada data yang sesuai dengan pencarian'
+            : 'Tidak ada data yang ditemukan'}
+        </p>
       </div>
     );
   }
@@ -197,13 +174,21 @@ export default function DataTable({ columns, data }: DataTableProps) {
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             placeholder="Cari customer..."
-            className="w-full rounded-lg border border-border-light bg-surface-primary py-2 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            disabled={isLoading}
+            className="w-full rounded-lg border border-border-light bg-surface-primary py-2 pl-10 pr-4 text-sm text-text-primary placeholder:text-text-tertiary focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="relative flex-1 overflow-auto">
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="bg-surface-primary/50 absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-text-secondary border-t-transparent" />
+          </div>
+        )}
+
         <table className="w-full">
           <thead className="sticky top-0 bg-surface-secondary">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -215,25 +200,19 @@ export default function DataTable({ columns, data }: DataTableProps) {
                   >
                     {header.isPlaceholder ? null : (
                       <div
-                        className={`flex items-center gap-2 ${
-                          header.column.getCanSort()
-                            ? 'cursor-pointer select-none hover:text-blue-600'
-                            : ''
-                        }`}
+                        className="flex cursor-pointer select-none items-center gap-2 hover:text-blue-600"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <span className="inline-flex">
-                            {header.column.getIsSorted() === 'asc' ? (
-                              <ArrowUp className="h-4 w-4" />
-                            ) : header.column.getIsSorted() === 'desc' ? (
-                              <ArrowDown className="h-4 w-4" />
-                            ) : (
-                              <ArrowUpDown className="h-4 w-4 opacity-50" />
-                            )}
-                          </span>
-                        )}
+                        <span className="inline-flex">
+                          {header.column.getIsSorted() === 'asc' ? (
+                            <ArrowUp className="h-4 w-4" />
+                          ) : header.column.getIsSorted() === 'desc' ? (
+                            <ArrowDown className="h-4 w-4" />
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </span>
                       </div>
                     )}
                   </th>
@@ -270,8 +249,8 @@ export default function DataTable({ columns, data }: DataTableProps) {
         {/* Page info */}
         <div className="flex items-center gap-4">
           <p className="text-sm text-text-tertiary">
-            {table.getFilteredRowModel().rows.length.toLocaleString('id-ID')} rows
-            {globalFilter && ` (filtered from ${data.length.toLocaleString('id-ID')} total)`}
+            {totalRowCount.toLocaleString('id-ID')} total rows
+            {globalFilter && ' (filtered)'}
           </p>
           <div className="flex items-center gap-2">
             <label htmlFor="page-size" className="text-sm text-text-tertiary">
@@ -283,7 +262,8 @@ export default function DataTable({ columns, data }: DataTableProps) {
               onChange={(e) => {
                 table.setPageSize(Number(e.target.value));
               }}
-              className="rounded border border-border-light bg-surface-primary px-2 py-1 text-sm text-text-primary focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              disabled={isLoading}
+              className="rounded border border-border-light bg-surface-primary px-2 py-1 text-sm text-text-primary focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {[10, 20, 50, 100].map((size) => (
                 <option key={size} value={size}>
@@ -297,12 +277,12 @@ export default function DataTable({ columns, data }: DataTableProps) {
         {/* Navigation buttons */}
         <div className="flex items-center gap-2">
           <span className="text-sm text-text-tertiary">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            Page {table.getState().pagination.pageIndex + 1} of {pageCount || 1}
           </span>
           <div className="flex gap-1">
             <button
               onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
+              disabled={!table.getCanPreviousPage() || isLoading}
               className="rounded p-1 text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="First page"
             >
@@ -310,7 +290,7 @@ export default function DataTable({ columns, data }: DataTableProps) {
             </button>
             <button
               onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
+              disabled={!table.getCanPreviousPage() || isLoading}
               className="rounded p-1 text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Previous page"
             >
@@ -318,15 +298,15 @@ export default function DataTable({ columns, data }: DataTableProps) {
             </button>
             <button
               onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
+              disabled={!table.getCanNextPage() || isLoading}
               className="rounded p-1 text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Next page"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
             <button
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
+              onClick={() => table.setPageIndex(pageCount - 1)}
+              disabled={!table.getCanNextPage() || isLoading}
               className="rounded p-1 text-text-secondary transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Last page"
             >

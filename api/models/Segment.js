@@ -4,11 +4,14 @@ const { Segment } = require('~/db/models');
 
 /**
  * Get all segments, sorted by creation date (newest first).
+ * Filters out soft-deleted segments by default.
  * @returns {Promise<Array>} Array of segment documents
  */
 async function getSegments() {
   try {
-    return await Segment.find({}).sort({ createdAt: -1 }).lean();
+    return await Segment.find({ $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }] })
+      .sort({ createdAt: -1 })
+      .lean();
   } catch (error) {
     logger.error('[getSegments] Error:', error);
     throw new Error('Failed to fetch segments');
@@ -17,12 +20,16 @@ async function getSegments() {
 
 /**
  * Get a single segment by its segmentId.
+ * Filters out soft-deleted segments by default.
  * @param {string} segmentId - The unique segment identifier
  * @returns {Promise<Object|null>} The segment document or null if not found
  */
 async function getSegmentById(segmentId) {
   try {
-    return await Segment.findOne({ segmentId }).lean();
+    return await Segment.findOne({
+      segmentId,
+      $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+    }).lean();
   } catch (error) {
     logger.error('[getSegmentById] Error:', error);
     throw new Error('Failed to fetch segment');
@@ -32,22 +39,48 @@ async function getSegmentById(segmentId) {
 /**
  * Create a new segment.
  * @param {Object} params - Segment creation parameters
+ * @param {string} [params.segmentId] - Optional pre-generated segment ID (UUID)
  * @param {string} params.name - Segment name
  * @param {string} params.description - Natural language description
+ * @param {string} [params.originalPrompt] - Original user prompt for segment creation
  * @param {string} params.sqlQuery - Generated SQL query
+ * @param {string} [params.viewName] - PostgreSQL view name
  * @param {Array} params.columns - Column definitions
  * @param {string} params.createdBy - User ID of creator
+ * @param {Date} [params.createdDate] - Custom creation date
+ * @param {boolean} [params.isDeleted] - Soft delete flag
+ * @param {Date} [params.lastExecutedAt] - Last execution timestamp
+ * @param {number} [params.lastRowCount] - Last row count
  * @returns {Promise<Object>} The created segment document
  */
-async function createSegment({ name, description, sqlQuery, columns, createdBy }) {
+async function createSegment({
+  segmentId,
+  name,
+  description,
+  originalPrompt,
+  sqlQuery,
+  viewName,
+  columns,
+  createdBy,
+  createdDate,
+  isDeleted,
+  lastExecutedAt,
+  lastRowCount,
+}) {
   try {
     const segment = await Segment.create({
-      segmentId: uuidv4(),
+      segmentId: segmentId || uuidv4(),
       name,
       description,
+      originalPrompt: originalPrompt || description,
       sqlQuery,
+      viewName,
       columns,
       createdBy,
+      createdDate,
+      isDeleted: isDeleted || false,
+      lastExecutedAt,
+      lastRowCount,
     });
     return segment.toObject();
   } catch (error) {
@@ -93,22 +126,34 @@ async function deleteSegment(segmentId) {
 }
 
 /**
- * Update a segment's name and description.
+ * Update a segment's fields.
  * @param {string} segmentId - The unique segment identifier
  * @param {Object} updates - Fields to update
  * @param {string} [updates.name] - New segment name
  * @param {string} [updates.description] - New segment description
+ * @param {string} [updates.sqlQuery] - New SQL query
+ * @param {Date} [updates.createdDate] - New created date
+ * @param {boolean} [updates.isDeleted] - Soft delete flag
+ * @param {Date} [updates.deletedAt] - Deletion timestamp
  * @returns {Promise<Object|null>} The updated segment document
  */
 async function updateSegment(segmentId, updates) {
   try {
+    const allowedFields = [
+      'name',
+      'description',
+      'sqlQuery',
+      'createdDate',
+      'isDeleted',
+      'deletedAt',
+    ];
     const allowedUpdates = {};
-    if (updates.name) {
-      allowedUpdates.name = updates.name;
-    }
-    if (updates.description) {
-      allowedUpdates.description = updates.description;
-    }
+
+    allowedFields.forEach((field) => {
+      if (updates[field] !== undefined) {
+        allowedUpdates[field] = updates[field];
+      }
+    });
 
     if (Object.keys(allowedUpdates).length === 0) {
       return await getSegmentById(segmentId);

@@ -27,6 +27,7 @@ import { createAccessRoleModel } from './accessRole';
 import { createAclEntryModel } from './aclEntry';
 import { createGroupModel } from './group';
 import { createSegmentModel } from './segment';
+import { createCustomerProfileModel } from './customerProfile';
 
 /**
  * Creates all database models for all collections
@@ -62,5 +63,6 @@ export function createModels(mongoose: typeof import('mongoose')) {
     AclEntry: createAclEntryModel(mongoose),
     Group: createGroupModel(mongoose),
     Segment: createSegmentModel(mongoose),
+    CustomerProfile: createCustomerProfileModel(mongoose),
   };
 }
